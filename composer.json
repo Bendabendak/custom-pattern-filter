@@ -1,0 +1,25 @@
+{
+    "name": "bendamartin/custom-filter-bm",
+    "description": "CLI tool to filter and count patterns in user files",
+    "require": {
+        "php": "^8.4",
+        "symfony/console": "^7.2.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "CustomPatternFilter\\": "src/CustomPatternFilter/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "bin": [
+        "bin/custom-filter-bm"
+    ],
+    "require-dev": {
+        "phpunit/phpunit": "^12.1",
+        "friendsofphp/php-cs-fixer": "^3.75"
+    }
+}
