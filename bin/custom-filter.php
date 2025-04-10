@@ -7,6 +7,8 @@
  * @link      https://https://github.com/Bendabendak
  * @copyright Copyright (c) 2025 Benda Martin
  */
+declare(strict_types=1);
+
 require __DIR__ . '/../vendor/autoload.php';
 
 use Symfony\Component\Console\Application;

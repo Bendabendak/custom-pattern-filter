@@ -61,7 +61,7 @@ or use:
 ### ✅ Filter a file
 
 ```bash
-php bin/custom-filter.php '/john/' '/@gmail\.com/' users.txt
+php bin/custom-filter.php users.txt '/john/' '/@gmail\.com/'
 ```
 
 ### ✅ Output as JSON

@@ -2,7 +2,7 @@
     "name": "bendamartin/custom-filter-bm",
     "description": "CLI tool to filter and count patterns in user files",
     "require": {
-        "php": "^8.4",
+        "php": ">=8.4 <9.0",
         "symfony/console": "^7.2.5"
     },
     "autoload": {
