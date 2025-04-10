@@ -1,16 +1,22 @@
 # CustomPatternFilter
 
-A modern PHP CLI tool to scan a file using user-defined regex patterns, count matches, and output results in multiple formats.
+A modern PHP CLI tool to scan a file (or stream) using user-defined regex patterns, count matches, and output results in multiple formats.
 
 ---
 
 ## 🚀 Features
 
 -   ✅ Filter text using multiple regex patterns
--   ✅ Output in JSON or plain text
--   ✅ Log results to file
--   ✅ Live progress updates (with `--debug`)
--   ✅ Supports PHP 8.4+ with modern features: generators, callables, enums, readonly DTOs
+-   ✅ Stream from large files
+-   ✅ Output in JSON, plain text, CSV, or Markdown
+-   ✅ Log results to multiple files in different formats
+-   ✅ Auto-detect format from log file extensions
+-   ✅ CLI output formatter (`--format`)
+-   ✅ Logging summary printed + saved to `log_summaries/`
+-   ✅ `--summary=filename` to name the summary log
+-   ✅ View the latest summary with `summary:latest`
+-   ✅ Live progress output with `--debug`
+-   ✅ Uses PHP 8+ features (readonly, generators, typed properties)
 
 ---
 
@@ -36,101 +42,85 @@ cd custom-pattern-filter
 composer install
 ```
 
-3. Make the CLI executable (optional):
+3. Run via:
 
 ```bash
-chmod +x bin/custom-filter.php
+php bin/custom-filter.php ...
+```
+
+or use:
+
+```bash
+./run.sh ...
 ```
 
 ---
 
 ## 📦 Usage
 
-### ✅ Basic file filtering
+### ✅ Filter a file
 
 ```bash
-php bin/custom-filter.php 'patterns'... file
+php bin/custom-filter.php '/john/' '/@gmail\.com/' users.txt
 ```
 
-Example:
+### ✅ Output as JSON
 
 ```bash
-php bin/custom-filter.php '/@gmail\.com/' '/^john/' users.txt
+--format=json
 ```
 
-### ✅ Debug mode (simulate slow processing)
+### ✅ Log results to multiple files
 
 ```bash
-php bin/custom-filter.php '/error/' log.txt --debug
+--log=output.json --log=output.md --log=output.csv
 ```
 
-### ✅ JSON output
+### ✅ Auto-detect format from extension
 
 ```bash
-php bin/custom-filter.php '/@gmail\.com/' '/john/' users.txt --format=json
+# Will log in markdown format
+--log=report.md
 ```
 
-### ✅ Log output to file
+### ✅ Write summary to a custom file
 
 ```bash
-php bin/custom-filter.php '/fail/' '/warn/' users.txt --format=json --log=results.json
+--summary=final-summary.txt
+```
+
+### ✅ View the latest summary
+
+```bash
+php bin/custom-filter.php summary:latest
+```
+
+---
+
+## 📁 Project Structure
+
+```
+bin/             CLI entrypoint
+src/             Core application files
+src/CustomPatternFilter/Formatter/   Formatters for output (Text, JSON, CSV, Markdown)
+src/CustomPatternFilter/Command/     Extra CLI commands like summary viewer
+log_summaries/   Where summary logs are saved
+tests/           PHPUnit tests
 ```
 
 ---
 
 ## 🧪 Testing
 
-Run unit and CLI tests using PHPUnit:
-
 ```bash
 vendor/bin/phpunit
 ```
 
----
+Includes tests for:
 
-## 🎯 Commands Summary
-
-| Command         | Description                           |
-| --------------- | ------------------------------------- |
-| `--debug`       | Simulate slow line-by-line reading    |
-| `--format=json` | Output as raw JSON (machine-readable) |
-| `--log=path`    | Append output to a file               |
-
----
-
-## Code Formatting
-
-Run PHP-CS-Fixer to apply headers and formatting:
-
-```bash
-PHP_CS_FIXER_IGNORE_ENV=1 vendor/bin/php-cs-fixer fix
-```
-
-✅ Automatically runs before each commit via a Git pre-commit hook.
-
----
-
-## 🔧 run.sh Script
-
-You can use the included `run.sh` script to automatically:
-
--   Ensure PHP 8.4+ is selected (via `update-alternatives`)
--   Run `composer install` if `vendor/` is missing
--   Execute the CLI entrypoint with the right PHP version
-
-### 🔄 Run with:
-
-```bash
-./run.sh filter '/pattern/' file.txt
-```
-
-If `run.sh` does not work on your system, you can run the main CLI entrypoint manually:
-
-```bash
-php bin/custom-filter.php '/pattern/' file.txt
-```
-
-> Make sure you have PHP 8.4+ installed and available through `update-alternatives`.
+-   CLI command output
+-   Invalid file handling
+-   JSON format validation
 
 ---
 
@@ -141,39 +131,3 @@ php bin/custom-filter.php '/pattern/' file.txt
 -   **License**: MIT
 
 ---
-
-## 📁 Project Structure
-
-```
-bin/        → CLI entrypoint
-src/        → Application source code
-tests/      → Unit and functional tests
-run.sh      → Portable CLI wrapper with PHP auto-detection
-```
-
----
-
-## 📌 Example JSON Output
-
-```json
-{
-    "lines_read": 2500,
-    "patterns": {
-        "/@gmail\\.com/": 1234,
-        "/^john/": 312
-    },
-    "input_source": "users.txt",
-    "command": "filter",
-    "arguments": {
-        "patterns": ["/@gmail\\.com/", "/^john/"],
-        "stdin": false,
-        "debug": false,
-        "format": "json"
-    },
-    "timestamp": "2025-04-09T19:05:03+00:00"
-}
-```
-
----
-
-Enjoy blazing-fast filtering with modern PHP! 🔥

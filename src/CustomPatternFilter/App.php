@@ -10,115 +10,115 @@
 
 namespace CustomPatternFilter;
 
+use CustomPatternFilter\Formatter\FormatterFactory;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use CustomPatternFilter\OutputFormat;
-use CustomPatternFilter\Formatter\JsonFormat;
-use CustomPatternFilter\Formatter\TextFormat;
 
 class App extends Command
 {
-    protected static $defaultName = 'filter';
-
-    public function __construct(private ProcessorFactory $factory = new ProcessorFactory())
+    public function __construct(private readonly ProcessorFactory $factory = new ProcessorFactory())
     {
-        parent::__construct();
+        parent::__construct('filter');
     }
 
     protected function configure(): void
     {
         $this
-            ->setDescription('Filters a file with regex patterns')
             ->setName('filter')
-            ->addArgument('file', InputArgument::REQUIRED, 'File to scan')
-            ->addArgument('patterns', InputArgument::IS_ARRAY | InputArgument::REQUIRED, 'Regex patterns')
-            ->addOption('debug', null, InputOption::VALUE_NONE, 'Simulate slow processing')
-            ->addOption('format', null, InputOption::VALUE_REQUIRED, 'Output format: json', 'text')
-            ->addOption('log', null, InputOption::VALUE_REQUIRED, 'Log results to file');
+            ->setDescription('Filter lines in a file using regex patterns')
+            ->addArgument('file', InputArgument::REQUIRED, 'Input file path')
+            ->addArgument('patterns', InputArgument::IS_ARRAY | InputArgument::REQUIRED, 'Regex patterns to apply')
+            ->addOption('debug', null, InputOption::VALUE_NONE, 'Enable simulated slow processing')
+            ->addOption('format', null, InputOption::VALUE_REQUIRED, 'Output format (json, txt, csv, md)')
+            ->addOption('log', null, InputOption::VALUE_IS_ARRAY | InputOption::VALUE_REQUIRED, 'Log results to one or more files')
+            ->addOption('summary', null, InputOption::VALUE_REQUIRED, 'Optional summary log file name');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $file = $input->getArgument('file');
         $patterns = $input->getArgument('patterns');
+        $file = $input->getArgument('file');
         $debug = $input->getOption('debug');
-        $logFile = $input->getOption('log');
-        $formatOption = strtolower($input->getOption('format'));
-        try {
-            $format = OutputFormat::from($formatOption);
-        } catch (\ValueError $e) {
-            $output->writeln("<error>Invalid format '$formatOption'. Only 'json' is supported for now.</error>");
+        $logFiles = $input->getOption('log') ?? [];
+        $summaryFile = $input->getOption('summary');
+
+        if (!file_exists(filename: $file)) {
+            $output->writeln("<error>File '$file' not found.</error>");
             return Command::FAILURE;
         }
 
-        $asText = $format === OutputFormat::TEXT;
+        $formatterFactory = new FormatterFactory();
 
-        if (!$file) {
-            $output->writeln('<error>Provide a file</error>');
-            return Command::FAILURE;
+        if ($input->getOption('format')) {
+            $format = $input->getOption('format');
+        } elseif (!empty($logFiles)) {
+            $ext = strtolower(pathinfo(
+                path: $logFiles[0],
+                flags: PATHINFO_EXTENSION
+            ));
+            $available = array_map(
+                callback: fn ($f): mixed => $f::getName(),
+                array: include __DIR__ . '/Formatter/formatter_map.php'
+            );
+            $format = in_array(
+                needle: $ext,
+                haystack: $available,
+                strict: true
+            ) ? $ext : 'txt';
+        } else {
+            $format = 'txt';
         }
 
-        try {
-            $stream = $this->factory->createStream($file);
-        } catch (\Exception $e) {
-            $output->writeln('<error>' . $e->getMessage() . '</error>');
-            return Command::FAILURE;
-        }
+        $inputSource = realpath($file) ?? 'unknown';
+        $commandName = $this->getName() ?? 'filter';
+        $fullArgs = [
+            'patterns' => $patterns,
+            'debug' => $debug,
+            'format' => $format,
+        ];
 
-        $onProgress = !$asText ? function ($lineCount, $results) use ($output, $debug): void {
-            if ($lineCount % 500 === 0 || $debug) {
+        $onProgress = !$debug ? null : function ($lineCount, $results) use ($output): void {
+            if ($lineCount % 10 === 0) {
                 $output->write("\r\033[2K");
                 $output->write("Lines read: $lineCount | ");
                 foreach ($results as $pattern => $count) {
                     $output->write("<fg=cyan>$pattern</>: <fg=yellow>$count</>  ");
                 }
             }
-        } : null;
-
-        $inputSource = realpath($file) ?? 'unknown';
-
-        $processor = $this->factory->createProcessor();
-        $commandName = $this->getName() ?? 'unknown';
-        $fullArgs = [
-            'patterns' => $patterns,
-            'debug' => $debug,
-            'format' => $format->value,
-        ];
-
-        $result = $processor->processStream(
-            stream: $stream,
-            patterns: $patterns,
-            debug: $debug,
-            onProgress: $onProgress,
-            inputSource: $inputSource,
-            command: $commandName,
-            arguments: $fullArgs
-        );
-
-        fclose(stream: $stream);
-        if (!$asText) {
-            $output->write("\r\033[2K");
-        }
-
-        $formatter = match ($format) {
-            OutputFormat::JSON => new JsonFormat(),
-            default => new TextFormat(),
         };
 
+        $stream = $this->factory->createStream($file, false);
+
+        $result = $this->factory
+            ->createProcessor()
+            ->processStream(
+                stream: $stream,
+                patterns: $patterns,
+                debug: $debug,
+                onProgress: $onProgress,
+                inputSource: $inputSource,
+                command: $commandName,
+                arguments: $fullArgs
+            );
+
+        fclose(stream: $stream);
+
+        $formatter = $formatterFactory->get($format);
         $formatter->print(
             output: $output,
             result: $result
         );
 
-        if ($logFile) {
-            $formatter->writeToFile(
-                filePath: $logFile,
-                result: $result
-            );
-        }
+        $logger = new LogSummaryWriter(summaryFile: $summaryFile);
+        $logger->writeLogs(
+            logFiles: $logFiles,
+            result: $result,
+            formatterFactory: $formatterFactory,
+            output: $output
+        );
 
         return Command::SUCCESS;
     }
